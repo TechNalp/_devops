@@ -9,6 +9,8 @@ COPY . .
 
 RUN pip install -r requirements.txt; apt-get update && apt-get install --no-install-recommends -y curl
 
+EXPOSE 5000
+
 ENTRYPOINT [ "python" ]
 
 CMD ["app.py"]
