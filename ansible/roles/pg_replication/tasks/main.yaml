@@ -1,0 +1,69 @@
+- block:
+  - name: Création d'un utilisateur pour la réplication
+    community.postgresql.postgresql_user:
+          db: postgres
+          name: "{{pg_replicator_username}}"
+          password: "{{pg_replicator_password}}"
+          role_attr_flags: REPLICATION
+
+  - name: Requête de récupération du path du fichier pg_hba.conf
+    postgresql_query:
+      db: postgres
+      query: SHOW hba_file
+    register: hba_request_result
+
+  - name: Traitement de la requête
+    ansible.builtin.set_fact:
+      hba_file_path: "{{ hba_request_result.query_result[0].hba_file }}"
+
+  - name: Autorisation de la connexion
+    community.postgresql.postgresql_pg_hba:
+      dest: "{{ hba_file_path }}"
+      contype: host
+      users: "{{pg_replicator_username}}"
+      address: all
+      databases: postgres
+      method: md5
+      create: true
+    notify: Restart postgres
+
+  - name: Resolution de l'ip du standby
+    ansible.builtin.shell: host postgres-standby.mathisplanchet.com |  awk '/has address/ {print $NF}'
+    register: standby_resolved_ip
+    
+
+  - name: Autorisation pour le noeud standby
+    community.postgresql.postgresql_pg_hba:
+      dest: "{{ hba_file_path }}"
+      contype: host
+      users: "{{pg_replicator_username}}"
+      address: "{{standby_resolved_ip.stdout}}/24"
+      databases: replication
+      method: md5
+      create: true
+    notify: Restart postgres
+
+  - name: Setup valeurs
+    community.postgresql.postgresql_set:
+      name: "{{ item.name }}"
+      value: "{{ item.value }}"
+    notify: Restart postgres
+    loop:
+      - { name: 'listen_addresses', value: '0.0.0.0'}
+      - { name: 'wal_level', value: 'replica'}
+      - { name: 'max_wal_senders', value: 10}
+      - { name: 'hot_standby', value: 'on'}
+
+  - name: Modification postgresql.conf
+    ansible.builtin.lineinfile:
+      path: /etc/postgresql/15/main/postgresql.conf
+      regexp: '^#?wal_keep_size = .*'
+      line: wal_keep_size = 1000
+    notify: Restart postgres
+
+  - name: Tâches liés à standby uniquement
+    ansible.builtin.include_tasks: 
+      file: standby.yaml
+    when: pg_mode == "standby"
+  become: true
+  become_user: postgres
