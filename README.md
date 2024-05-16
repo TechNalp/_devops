@@ -1,4 +1,4 @@
-# Jeanne BLANC et Mathis PLANCHET
+*Jeanne BLANC et Mathis PLANCHET*
 
 # Comment lancer le projet ?
 
