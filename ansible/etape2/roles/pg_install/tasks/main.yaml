@@ -1,0 +1,60 @@
+- name: Installation de pgsql
+  ansible.builtin.apt:
+    pkg:
+      - postgresql-15
+      - python3-psycopg2
+    state: present
+  become: true
+- name: "Lancement de pgsql"
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+  become: true
+- block:
+    - name: "Création de la bdd"
+      community.postgresql.postgresql_db:
+        name: postgres
+        encoding: UTF-8
+    
+    - name: "Création de l'utilisateur de la bdd"
+      community.postgresql.postgresql_user:
+        db: postgres
+        name: "{{pg_username}}"
+        password: "{{pg_password}}"
+
+    - name: "Ajout des droits"
+      community.postgresql.postgresql_privs:
+        database: postgres
+        state: present
+        privs: all
+        type: database
+        role: postgres
+
+    - name: Requête de récupération du path du fichier pg_hba.conf
+      community.postgresql.postgresql_query:
+        db: postgres
+        query: SHOW hba_file
+      register: hba_request_result
+
+    - name: Traitement de la requête
+      ansible.builtin.set_fact:
+        hba_file_path: "{{ hba_request_result.query_result[0].hba_file  }}"
+
+    - name: Autorisation de la connexion
+      community.postgresql.postgresql_pg_hba:
+        dest: "{{ hba_file_path }}"
+        contype: host
+        users: "{{pg_username}}"
+        address: all
+        databases: postgres
+        method: md5
+        create: true
+      notify: Restart postgres
+
+    - name: "Setup de l'adresse d'écoute"
+      community.postgresql.postgresql_set:
+        name: listen_addresses
+        value: 0.0.0.0
+  become: true
+  become_user: postgres
+  

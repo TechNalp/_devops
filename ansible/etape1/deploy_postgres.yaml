@@ -1,0 +1,7 @@
+- name: "Deployement de pgsql"
+  hosts: vm1
+  vars:
+    pg_username: "postgres"
+    pg_password: "postgres"
+  roles:
+    - role: pg_install

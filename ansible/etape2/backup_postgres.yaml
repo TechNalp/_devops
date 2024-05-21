@@ -1,0 +1,16 @@
+- name: Backup postgres
+  hosts: all
+  tasks:
+    - name: Backup des données
+      community.postgresql.postgresql_db:
+        name: postgres
+        state: dump
+        target: /tmp/dump.sql
+      become: true
+      become_user: postgres
+
+    - name: Send to local machine
+      ansible.builtin.fetch:
+        src: /tmp/dump.sql
+        dest: "../backups/dump{{ ansible_date_time.date + ':' + ansible_date_time.time }}.sql"
+        flat: true

@@ -1,42 +1,68 @@
-*Jeanne BLANC et Mathis PLANCHET*
+_Jeanne BLANC et Mathis PLANCHET_
 
-# Comment lancer le projet ?
+# PROJET ANSIBLE
 
-**NOUS SUPPOSONS QUE VOTRE GCLOUD ET KUBECTL SONT CORRECTEMENT CONFIGURÉ**
+**(Nous supposons que vous avez déjà mis vos images docker sur le dépot de GPC)**
 
-## Préparation de GCP:
+## Etape 1 (Mise en place d'une bdd)
 
-- Créer un cluster kubernetes en utilisant la commande suivant: `gcloud container clusters create cluster --machine-type n2-standard-2 --num-nodes 3 --zone europe-west9-b`
-- Depuis le dashboard Google Cloud Platform, créer un Artefact Repository dans la zone `europe-west9b`.
+- Se mettre dans le dossier `ansible/etape1`
+- Créer une instance VM sur google cloud platform, directement depuis le dashboard ou avec la commande suivante:
+  `gcloud compute instances create postgres \
+--image-family=debian-12 \
+--image-project=debian-cloud \
+--machine-type=e2-medium \
+--zone=europe-west9-b`
 
-## Construction des images docker et envoi vers le dépot GCP
-- Se placer dans le dossier racine du projet
-- Exécuter la commande suivante pour construire les images : ```docker-compose build docker-compose.yml```
-- Afin de pouvoir s'authentifier auprès du registry, il faut excuter ensuite la commande : ```gcloud auth configure-docker europe-west9-docker.pkg.dev```
-- Push des images vers le dépot distant :```docker-compose push```
+- Modifier le fichier `ansible/etape1/inventories/all.yaml` en modifiant `ansible_host`par l'address ip externe de votre vm, modifier `ansible_user` par le nom d'utilisateur de votre vm et modifier `ansible_ssh_private_key_file` en mettant le chemin vers la clé ssh de google cloud platform
 
-## Mise en place des vms servant à postgresql
-- Se placer dans le dossier racine du projet
-- Executer le script suivant : scripts/create_vm_instance.sh (Ce script est conçu pour créer les 2 vm servant aux bdd postgresql et sert également à configurer automatiquement les noms de domaine postgres-primary.mathisplanchet.com et postgres-standby.mathisplanchet avec les ip des vms)
-- Copier l'ip externe de la vm `postgres-primary` et remplacer celle présente dans le fichier k8s_ressources/k8s_endpointSlice.yaml
-- Copier l'ip externe de la vm `postgres-standby` et remplacer celle présente dans le fichier k8s_ressources/db-replica/k8s_endpointSlice.yaml
+- Créer une règle de parefeu sur GCP ouvrnant le port `5432` en indiquant dans cette règle que les vms concerné ont le tag `db-server`.
 
-## Configuration des vms avec ansible
-- Se placer dans le dossier `ansible`
-- Executer la commande `ansible-playbook deploy_postgres_with_replication.yaml`
+- Executer la commande suivante: `gcloud compute instances add-tags postgres --zone=europe-west9-b  --tags=db-server`
 
-## Mise en place de l'infrastrucutre kubernetes
-- Se placer dans le dossier racine du projet
-- Executer la commande `kubectl apply -f k8s_ressources` (Crée les ressources kubernetes du namespace default)
-- Executer la commande `kubectl apply -f k8s_ressources/db-replica` (Crée les ressources kubernetes du namespace db-replica)
+- Modifier l'ip présente dans `kubernetes/k8s_endpointSlice.yaml` en mettant l'ip externe de votre vm.
 
-## Accéder aux sites web
-- Executer la commande `kubectl get svc -A`
-- Pour accéder au site web de soumission de vote, copier la valeur de l'ip exterieur du loadbalancer nommée `vote` (Si il est en <pending>, relancer la commande jusqu'a ce qu'il ne le soit plus) dans votre navigateur
-- Pour accéder au site web de consultation des votes, copier la valeur de l'ip exterieur du loadbalancer nommée `result` (Si il est en <pending>, relancer la commande jusqu'a ce qu'il ne le soit plus) dans votre navigateur
-- **L'AFFICHAGE DES VOTES PEUX PARFOIS PRENDRE UN PEU DE TEMPS**
+- Être dans le dossier `ansible/etape1` et lancer la commande `ansible-playbook deploy_postgres.yaml`
 
-## Optionnel
-### Lancer le seeder
-- Se placer à la racine du projet
-- Executer la commande `kubectl apply -f k8s_jobs/k8s_seeder.yaml`
+- Lancer les ressources kubernetes avec la commande `kubectl apply -f kubernetes`
+
+## Etape 2 (Mise en place backup avec ou sans stream)
+
+- Se mettre dans le dossier `ansible/etape2`
+- Si vous ne l'avez pas fait pour l'étape 1, modifiez les informations de `ansible/etape2/inventories/all.yaml`
+
+- S'assurer que l'ip présente dans `kubernetes/k8s_endpointSlice.yaml` est la bonne.
+
+- S'assurer que le fichier `ansible/etape3/inventories/all.yaml` est bien configuré pour votre vm et votre clé ssh
+
+Nous supposons que vous avez créé et configuré la vm comme indiqué à l'étape 1.
+
+- Si nécessaire relancer la commande `ansible-playbook deploy_postgres.yaml`
+
+- Ne pas oublié de lancer les ressources kubernetes si ce n'est pas déjà fait avec la commande `kubectl apply -f kubernetes`
+
+- Vous pouvez lancer le seeder pour remplir la bdd si vous le souhaitez en éxecutant la commande `kubectl apply -f k8s_jobs`
+
+#### Backup sans stream
+
+- Executer le playbook `backup_postgres.yaml` avec la commande `ansible-playbook backup_postgres.yaml`. Normalement un dossier `backups` est apparu est un contient un fichier de dump.
+
+#### Backup avec stream
+
+_(Ce n'est pas un vrai stream dans le sens où tout le contenu du dump est stocké en mémoire avant d'être envoyé mais c'est un intermédiaire qui évite qu'un fichier de dump soit écrit sur le stockage du serveur)_
+
+- Executer le playbook `backup_postgresStream.yaml` avec la commande `ansible-playbook backup_postgresStream.yaml`. Normalement un dossier `backups` est apparu (si il n'était pas déjà présent) est un contient un fichier de dump supplémentaire.
+
+## Etape 3 (Configuration avancée)
+
+- Se mettre dans le dossier `ansible/etape3`
+
+- S'assurer que le fichier `ansible/etape3/inventories/all.yaml` est bien configuré pour votre vm et votre clé ssh
+
+- S'assurer que l'ip présente dans `kubernetes/k8s_endpointSlice.yaml` est la bonne.
+
+- Vous pouvez executer le playbook `deploy_postgresAdvanced.yaml` avec la commande `ansible-playbook deploy_postgresAdvanced.yaml`
+
+## Etape 4 (Mise en place standby)
+
+- Cette étape est présente sur projet finale sur la branche `main` (playbook `deploy_postgres_with_replication.yaml`)

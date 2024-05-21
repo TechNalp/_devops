@@ -1,5 +1,5 @@
-- name: "Deployement de pgsql"
-  hosts: postgres-primary.mathisplanchet.com
+- name: "Deployement de pgsql (configuration avancée)"
+  hosts: vm1
   vars:
     pg_username: "postgres"
     pg_password: "postgres"

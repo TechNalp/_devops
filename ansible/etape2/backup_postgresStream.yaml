@@ -1,0 +1,15 @@
+- name: Backup postgres stream
+  hosts: postgres-primary.mathisplanchet.com
+  tasks:
+    - name: Backup des données stream
+      ansible.builtin.shell:
+        cmd: pg_dump -d postgres
+      become: true
+      become_user: postgres
+      register: stdout
+
+    - name: Création du fichier depuis le stream
+      ansible.builtin.copy:
+        dest: "../backups/dump{{ ansible_date_time.date + ':' + ansible_date_time.time }}.sql"
+        content: "{{ stdout.stdout }}"
+      delegate_to: localhost
