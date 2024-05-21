@@ -20,6 +20,7 @@
 - Exécuter le script suivant : scripts/create_vm_instance.sh (ce script est conçu pour créer les 2 machines virtuelles servant aux bases de données postgresql et servant également à configurer automatiquement les noms de domaine postgres-primary.mathisplanchet.com et postgres-standby.mathisplanchet avec les ip des vms)
 - Copier l'ip externe de la vm `postgres-primary` et remplacer celle présente dans le fichier k8s_ressources/k8s_endpointSlice.yaml
 - Copier l'ip externe de la vm `postgres-standby` et remplacer celle présente dans le fichier k8s_ressources/db-replica/k8s_endpointSlice.yaml
+- Créer une règle de parefeu sur GCP ouvrnant le port `5432` en indiquant dans cette règle que les vms concernées ont le tag `db-server` (le script précédant ayant déjà mis en place le tag sur les vms)
 
 ## Configuration des vms avec ansible
 - Se placer dans le dossier `ansible`
