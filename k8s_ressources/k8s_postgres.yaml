@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  selector:
+    matchLabels:
+      pod_type: postgres
+  template:
+    metadata:
+      name: postgres-replicaset
+      labels:
+        pod_type: postgres
+    spec:
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: db-data-pvc
+        - name: pg-healthcheck
+          emptyDir: {}
+      containers:
+        - image: postgres:15-alpine
+          name: postgres-pod
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          volumeMounts:
+            - subPath: data
+              name: db-data
+              mountPath: /var/lib/postgresql/data
+            - mountPath: /healthchecks
+              name: pg-healthcheck
+          ports:
+            - containerPort: 6379
+          livenessProbe:
+            exec:
+              command:
+                - "./healthchecks/postgres.sh"
+            initialDelaySeconds: 10
+            periodSeconds: 15
+      initContainers:
+        - name: init-postgres-pod
+          image: alpine
+          command:
+            [
+              "sh",
+              "-c",
+              "apk update && apk add wget && wget -O /healthchecks/postgres.sh https://gitlab.imt-atlantique.fr/login-nuage/healthchecks/-/raw/main/postgres.sh?ref_type=heads && chmod +x /healthchecks/postgres.sh",
+            ]
+
+          volumeMounts:
+            - mountPath: /healthchecks
+              name: pg-healthcheck

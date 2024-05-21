@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      pod_type: vote
+  template:
+    metadata:
+      name: vote-replicaset
+      labels:
+        pod_type: vote
+    spec:
+      containers:
+        - image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/vote
+          name: vote-pod
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+          resources:
+            requests:
+              cpu: 0.1

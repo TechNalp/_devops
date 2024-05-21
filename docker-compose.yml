@@ -1,17 +1,16 @@
 services:
   nginx:
+    image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/nginx
     build: ./nginx
+    ports:
+      - "80:8000"
     networks:
       - front-tier
-    ports:
-      - "8000:8000"
     depends_on:
-      vote_1:
-        condition: service_started
-      vote_2:
-        condition: service_started
+      - vote
 
   db:
+    platform: linux/amd64
     image: postgres:15-alpine
     volumes:
       - ./healthchecks/postgres.sh:/healthchecks/postgres.sh
@@ -28,6 +27,7 @@ services:
       - POSTGRES_PASSWORD=postgres
 
   redis:
+    platform: linux/amd64
     image: redis
     volumes:
       - ./healthchecks/redis.sh:/healthchecks/redis.sh
@@ -41,43 +41,34 @@ services:
       start_period: 15s
 
   seeder:
+    platform: linux/amd64
+    image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/seed-data
     build: ./seed-data
     networks:
       - front-tier
     depends_on:
       - nginx
 
-  vote_1:
+  vote:
+    platform: linux/amd64
+    image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/vote
     build: ./vote
     networks:
       - front-tier
       - back-tier
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5000 || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 30s
       retries: 5
-      start_period: 5s
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  vote_2:
-    build: ./vote
-    networks:
-      - front-tier
-      - back-tier
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000 || exit 1"]
-      interval: 30s
-      timeout: 30s
-      retries: 5
-      start_period: 5s
+      start_period: 15s
     depends_on:
       redis:
         condition: service_healthy
 
   result:
+    platform: linux/amd64
+    image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/result
     build: ./result
     ports:
       - "4000:4000"
@@ -89,7 +80,10 @@ services:
         condition: service_healthy
 
   worker:
-    build: ./worker
+    platform: linux/amd64
+    image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/worker
+    build:
+      context: ./worker
     networks:
       - back-tier
     depends_on:

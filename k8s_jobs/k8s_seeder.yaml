@@ -1,0 +1,12 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seeder-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: seeder-pod
+          image: europe-west9-docker.pkg.dev/login-k8s-1/voting-images/seed-data
+      restartPolicy: Never
+  backoffLimit: 4

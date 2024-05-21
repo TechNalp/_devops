@@ -1,25 +1,38 @@
 _Jeanne BLANC et Mathis PLANCHET_
 
-# Comment lancer le projet DOCKER + DOCKER COMPOSE?
+# Comment lancer le projet KUBERNETES
 
-## Build des images docker
+## Lancer la création d'un cluster kubernetes
+
+- Executer la commande suivant : `gcloud container clusters create cluster --machine-type n2-standard-2 --num-nodes 3 --zone europe-west9-b`
+
+**LA SUITE PEUT ÊTRE EFFECTUER PENDANT QUE LE CLUSTER DÉMARRE**
+
+## Créer et connecter votre dépot d'image google cloud à docker
+
+- Créer un artifact registry depuis le dashboard de google cloud platform dans la zone `europe-9-b`
+- Utiliser la commande suivante: `gcloud auth configure-docker europe-west9-docker.pkg.dev`
+
+## Construire et pusher les images docker
 
 - Se mettre à la racine du projet
 - Executer la commande `docker compose build`
+- Executer la commande `docker compose push`
 
-## Lancement des containers avec docker compose
+**IL FAUT QUE LE CLUSTER KUBERNETES EST FINI DE DÉMARRER AVANT DE FAIRE LA SUITE**
+
+## Lancer toutes les ressources kubernetes
 
 - Se mettre à la racine du projet
-- Executer la commande `docker compose up`
-
-#####**IL PEUT Y AVOIR UN PETIT DELAI AVANT TOUT LES CONTAINERS SOIT ALLUMER (À CAUSE DES DEPENDS_ON)**
-
-## Voir que les healthchecks sont bien présent
-
-- Executer la commande `docker compose ps`, il est bien indiqué pour les votes, redis et postgres qu'ils sont healthly
+- Executer : `kubectl apply - f k8s_volumeClaim`
+- Executer : `kubectl apply - f k8s_ressources`
 
 ## Voir les sites web
 
-- Attendre que tous les containers soit allumés (il est normale que le container seeder s'arrête au bout d'un moment)
-- Pour voir le site web de soumission des votes, mettre http://localhost:8000 dans votre navigateur
-- Pour voir le site web de consultation des votes, mettre http://localhost:4000
+- Executer la commande `kubectl get svc`
+- Récupérer les address ip externe des services `result` et `vote` et les utiliser pour se connecter (ne pas oublier d'ajouter le bon port).
+
+## Activer le seeder
+
+- Se mettre à la racine du projet
+- Executer la commande: `kubectl apply -f k8s_jobs`
