@@ -23,6 +23,7 @@
 
 ## Configuration des vms avec ansible
 - Se placer dans le dossier `ansible`
+- Dans le fichier `inventories/all.yaml` modifier les valeurs de `ansible_user` en mettant votre nom d'utilisateur de la vm et `ansible_ssh_private_key_file` en mettant le chemin de la clé ssh de gcloud
 - Exécuter la commande `ansible-playbook deploy_postgres_with_replication.yaml`
 
 ## Mise en place de l'infrastrucutre kubernetes
